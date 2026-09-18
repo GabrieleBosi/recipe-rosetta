@@ -30,6 +30,10 @@ Family context:
 - Where an answer is missing and it changes the result, write an open question.
   Ask about the cook, the occasion, the equipment, and the expected look,
   smell, or texture. Keep each question short and answerable.
+- You may be shown the questions already on file. Any of those that is still
+  worth asking, repeat word for word, exactly as written. Do not reword it and
+  do not ask the same thing in other words. Add a question only for something
+  the list does not already cover.
 
 Write plain, direct English. Do not add commentary outside the JSON fields.
 `.trim();
@@ -115,6 +119,8 @@ export interface RecipeContext {
   attributedTo?: string | null;
   sourceNote?: string | null;
   answers: { question: string; answer: string }[];
+  /** Questions already stored and still unanswered. */
+  openQuestions: string[];
 }
 
 export function buildPrompt(context: RecipeContext): string {
@@ -145,6 +151,16 @@ export function buildPrompt(context: RecipeContext): string {
       "",
       "The family has not answered any questions yet. List the questions that",
       "would most improve this recipe in open_questions.",
+    );
+  }
+
+  if (context.openQuestions.length > 0) {
+    lines.push("", "Questions already on file, still unanswered:");
+    for (const question of context.openQuestions) lines.push(`- ${question}`);
+    lines.push(
+      "",
+      "Return each of these that is still worth asking word for word.",
+      "Add a question only for something they do not already cover.",
     );
   }
 
