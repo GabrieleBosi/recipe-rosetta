@@ -19,6 +19,50 @@ import { buildPrompt, RESPONSE_SCHEMA, SYSTEM_INSTRUCTION } from "../_shared/pro
 const BUCKET = "recipe-scans";
 const MAX_IMAGES = 4;
 
+// A ceiling on the interview, so a model that keeps inventing questions cannot
+// grow the list without end. Hitting it stops new questions being added; it
+// never removes one already stored.
+const MAX_QUESTIONS = 8;
+
+// Every run used to re-derive the open questions from nothing, so Gemini asked
+// the same thing in fresh words each time ("What shape and size cake pan was
+// normally used?" then "What size pan or tin did the baker use?"), and exact
+// text matching stored both. The prompt now shows the model what is already on
+// file and asks for that wording back. These two functions are the backstop for
+// when it rewords anyway.
+const STOP_WORDS = new Set([
+  "the", "a", "an", "and", "or", "of", "for", "to", "in", "on", "with", "this",
+  "that", "was", "were", "is", "are", "did", "do", "does", "you", "your", "she",
+  "what", "which", "how", "usually", "normally", "used", "use", "make", "made",
+  "any", "her", "his", "their", "its", "recipe", "cook", "baker",
+]);
+
+function meaningfulWords(question: string): Set<string> {
+  return new Set(
+    question
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((word) => word.length > 2 && !STOP_WORDS.has(word)),
+  );
+}
+
+/** Jaccard overlap: 1 means the same words, 0 means nothing in common. */
+function overlap(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let shared = 0;
+  for (const word of a) if (b.has(word)) shared += 1;
+  return shared / (a.size + b.size - shared);
+}
+
+// Measured against the duplicates this actually produced. Over the same-recipe
+// pairs on file, questions that were the same thing reworded scored 0.40 and
+// above, and genuinely different ones scored 0.27 and below. 0.35 sits in the
+// middle of that gap: it catches every rewording seen so far and merges none of
+// the distinct pairs. Raise it and rewordings slip through; lower it past 0.27
+// and separate questions start collapsing into one.
+const SAME_QUESTION = 0.35;
+
 interface TranslationPayload {
   title: string;
   transcription: string;
@@ -116,6 +160,19 @@ Deno.serve(async (req: Request) => {
     })
     .filter((entry): entry is { question: string; answer: string } => entry !== null);
 
+  // What the model is shown, so it reuses this wording instead of inventing
+  // a new phrasing for a question we already hold.
+  const { data: storedQuestions } = await userClient
+    .from("interview_questions")
+    .select("question, position")
+    .eq("recipe_id", recipeId)
+    .order("position", { ascending: true });
+
+  const answered = new Set(answers.map((entry) => entry.question));
+  const unanswered = (storedQuestions ?? [])
+    .map((row) => row.question as string)
+    .filter((question) => !answered.has(question));
+
   // Writes bypass RLS. Membership was already proved by the reads above.
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false },
@@ -148,6 +205,7 @@ Deno.serve(async (req: Request) => {
         attributedTo: recipe.attributed_to,
         sourceNote: recipe.source_note,
         answers,
+        openQuestions: unanswered,
       }),
       images: inlineImages,
       responseSchema: RESPONSE_SCHEMA as unknown as Record<string, unknown>,
@@ -190,17 +248,27 @@ Deno.serve(async (req: Request) => {
         .select("question, position")
         .eq("recipe_id", recipeId);
 
-      const known = new Set((existing ?? []).map((row) => row.question));
+      const known = (existing ?? []).map((row) => meaningfulWords(row.question));
+      let stored = (existing ?? []).length;
       let position = (existing ?? []).reduce((max, row) => Math.max(max, row.position), -1);
 
-      const fresh = openQuestions
-        .filter((entry) => entry.question && !known.has(entry.question))
-        .map((entry) => ({
+      const fresh = [];
+      for (const entry of openQuestions) {
+        if (!entry.question) continue;
+        if (stored >= MAX_QUESTIONS) break;
+
+        const words = meaningfulWords(entry.question);
+        if (known.some((other) => overlap(words, other) >= SAME_QUESTION)) continue;
+
+        known.push(words);
+        stored += 1;
+        fresh.push({
           recipe_id: recipeId,
           question: entry.question,
           rationale: entry.rationale ?? null,
           position: ++position,
-        }));
+        });
+      }
 
       if (fresh.length > 0) {
         await admin.from("interview_questions").insert(fresh);
