@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { supabase } from "../lib/supabase";
 
@@ -9,6 +9,31 @@ export default function SignIn() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // A failed confirmation link lands here with the reason in the URL fragment.
+  // Without this the user sees an ordinary sign-in form and no explanation.
+  useEffect(() => {
+    const fragment = window.location.hash.replace(/^#/, "");
+    if (!fragment) return;
+
+    const params = new URLSearchParams(fragment);
+    const description = params.get("error_description");
+    if (!description) return;
+
+    setError(
+      params.get("error_code") === "otp_expired"
+        ? `${description}. These links work only once, and mail providers often ` +
+          "open them first. If you already confirmed, just sign in below."
+        : description,
+    );
+
+    // Drop the fragment so a reload does not show a stale error.
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname + window.location.search,
+    );
+  }, []);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -21,6 +46,7 @@ export default function SignIn() {
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
+          options: { emailRedirectTo: window.location.origin },
         });
         if (signUpError) throw signUpError;
         if (!data.session) {

@@ -109,11 +109,35 @@ Connect the repository, then set these build settings (they are already in
 Add the two `VITE_` variables from `.env.example` under **Site configuration →
 Environment variables**. Do not add `GEMINI_API_KEY` — Netlify never needs it.
 
-### 5. Auth
+The live site is https://recipe-rosetta.netlify.app. It builds from `main`,
+and both `VITE_` variables are already set on it.
 
-A new Supabase project asks for email confirmation on sign-up. For quick
-testing, turn it off under **Authentication → Sign In / Providers → Email →
-Confirm email**, or confirm the address from the inbox.
+### 5. Auth URLs
+
+Do this before the first sign-up, or confirmation links go nowhere.
+
+A new Supabase project sets its Site URL to `http://localhost:3000`. That is
+the default target for confirmation and password-reset links, so every link
+sends the user to a port nothing listens on.
+
+Under **Authentication → URL Configuration**:
+
+- **Site URL**: `https://recipe-rosetta.netlify.app`
+- **Redirect URLs**: add `https://recipe-rosetta.netlify.app/**` and
+  `http://localhost:5173/**` for local work. The dev server uses port 5173,
+  not 3000.
+
+Sign-up also passes `emailRedirectTo: window.location.origin`, so a link
+returns to whichever origin the person signed up from. That origin must still
+appear in the Redirect URLs list, or Supabase falls back to the Site URL.
+
+Two things about confirmation links:
+
+- They work once. Mail providers scan links before the reader clicks, which
+  can spend the link. The reader then sees `otp_expired` although the account
+  is already confirmed. They can simply sign in.
+- To skip email confirmation while testing, turn off **Authentication →
+  Sign In / Providers → Email → Confirm email**.
 
 ## Deploying changes
 
