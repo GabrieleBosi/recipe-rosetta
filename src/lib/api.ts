@@ -1,7 +1,6 @@
 import { SCANS_BUCKET, supabase } from "./supabase";
 import type {
   Family,
-  InterviewAnswer,
   InterviewQuestion,
   Recipe,
   RecipeImage,
@@ -95,47 +94,6 @@ export async function getOpenQuestions(
     .order("position", { ascending: true });
   fail("Could not read the questions", error);
   return (data ?? []) as InterviewQuestion[];
-}
-
-export async function getAnswers(recipeId: string): Promise<InterviewAnswer[]> {
-  const { data, error } = await supabase
-    .from("interview_answers")
-    .select("*")
-    .eq("recipe_id", recipeId);
-  fail("Could not read the answers", error);
-  return (data ?? []) as InterviewAnswer[];
-}
-
-export interface AnswerInput {
-  questionId: string;
-  answer: string;
-}
-
-/**
- * Store the family's answers. One answer per question, so answering again
- * replaces the previous one. The Edge Function reads these back into the
- * prompt on the next translation.
- */
-export async function saveAnswers(
-  recipeId: string,
-  userId: string,
-  entries: AnswerInput[],
-): Promise<void> {
-  const rows = entries
-    .filter((entry) => entry.answer.trim().length > 0)
-    .map((entry) => ({
-      question_id: entry.questionId,
-      recipe_id: recipeId,
-      answer: entry.answer.trim(),
-      answered_by: userId,
-    }));
-
-  if (rows.length === 0) return;
-
-  const { error } = await supabase
-    .from("interview_answers")
-    .upsert(rows, { onConflict: "question_id" });
-  fail("Could not save the answers", error);
 }
 
 /** Short-lived URL for a private scan. The bucket is never public. */
