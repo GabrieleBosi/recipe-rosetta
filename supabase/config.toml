@@ -1,0 +1,7 @@
+# Minimal config for the Supabase CLI. The hosted project is linked with:
+#   supabase link --project-ref pwruhqpefkbbrkgmgehn
+project_id = "recipe-rosetta"
+
+[functions.translate-recipe]
+# The function must know who is calling, so it can apply row level security.
+verify_jwt = true
