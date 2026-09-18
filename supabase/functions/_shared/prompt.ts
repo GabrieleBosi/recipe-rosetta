@@ -23,15 +23,6 @@ How to translate the recipe:
   Explain each substitution.
 - Where the card gives no quantity, no time, or no temperature, use the usual
   value for that kind of dish, and record the choice as an assumption.
-- Write the modern steps in modern words. Do not carry an old term such as
-  "a slow oven" or "gas mark 4" into an instruction. Replace it with the
-  temperature or the setting it means. The transcription keeps the old words;
-  the steps must not.
-- Where the card offers a choice of ingredient, for example "chocolate or
-  cocoa", do not give one weight for both. The same volume of each weighs a
-  different amount. Choose the one this recipe more probably used, give the
-  weight of that one only, name your choice in the item, record it as an
-  assumption, and ask the family which one they used.
 
 Family context:
 - You are given answers from the family about who cooked this and how. Use
