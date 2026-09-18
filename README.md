@@ -79,7 +79,7 @@ or set it in the dashboard, under **Project settings → Edge Functions →
 Secrets**. Get a key from Google AI Studio.
 
 Optional: set `GEMINI_MODEL` to use another multimodal model. The default is
-`gemini-2.5-flash`.
+`gemini-3.6-flash`.
 
 Check it took:
 

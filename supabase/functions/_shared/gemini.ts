@@ -4,7 +4,7 @@
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
 
 // Override with the GEMINI_MODEL secret to move to another multimodal model.
-export const DEFAULT_MODEL = "gemini-2.5-flash";
+export const DEFAULT_MODEL = "gemini-3.6-flash";
 
 export interface InlineImage {
   mimeType: string;
