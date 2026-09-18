@@ -156,18 +156,21 @@ Built:
 - One call to Gemini that transcribes the handwriting and writes the modern
   recipe, with substitutions and the assumptions it had to make.
 - Side-by-side view: the scan on the left, the translation on the right.
-- The questions Gemini could not answer are stored, ready for the interview.
+- **The interview.** Gemini writes the questions the card leaves open. The
+  family answers them, and the next translation gets those answers in its
+  prompt, so memory decides what the handwriting could not. Answers replace
+  rather than accumulate, and each run is stored as a new version, so nothing
+  earlier is lost.
 
 Next:
 
-1. **Interview** — a form that answers `interview_questions` and runs the
-   translation again. The Edge Function already reads the answers back and
-   feeds them to Gemini, so this is a UI change.
-2. **Sharing** — `recipes.is_public` and `recipes.share_slug` exist. Sharing
+1. **Sharing** — `recipes.is_public` and `recipes.share_slug` exist. Sharing
    needs a read policy for anonymous users on the public rows, a matching
    Storage policy for their scans, and a `/share/:slug` route.
-3. **Invites** — adding another person to a family. `family_members` and its
+2. **Invites** — adding another person to a family. `family_members` and its
    policies are in place; the invitation flow is not.
+3. **Version history** — every translation is kept, but only the newest is
+   shown. Nothing yet lets the reader compare two runs.
 
 ## Security notes
 

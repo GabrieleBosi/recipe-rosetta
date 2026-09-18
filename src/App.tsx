@@ -58,7 +58,10 @@ export default function App() {
             path="/"
             element={<Library userId={user.id} displayName={displayName} />}
           />
-          <Route path="/recipe/:recipeId" element={<RecipePage />} />
+          <Route
+            path="/recipe/:recipeId"
+            element={<RecipePage userId={user.id} />}
+          />
           <Route
             path="*"
             element={<p className="note">That page does not exist.</p>}
