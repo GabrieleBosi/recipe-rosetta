@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
+import Interview from "../components/Interview";
 import ScanViewer from "../components/ScanViewer";
 import TranslatedRecipeView from "../components/TranslatedRecipeView";
 import {
+  getAnswers,
   getImages,
   getLatestTranslation,
   getOpenQuestions,
@@ -11,33 +13,37 @@ import {
   translateRecipe,
 } from "../lib/api";
 import type {
+  InterviewAnswer,
   InterviewQuestion,
   Recipe,
   RecipeImage,
   Translation,
 } from "../lib/types";
 
-export default function RecipePage() {
+export default function RecipePage({ userId }: { userId: string }) {
   const { recipeId } = useParams<{ recipeId: string }>();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [images, setImages] = useState<RecipeImage[]>([]);
   const [translation, setTranslation] = useState<Translation | null>(null);
   const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
+  const [answers, setAnswers] = useState<InterviewAnswer[]>([]);
   const [loading, setLoading] = useState(true);
   const [retranslating, setRetranslating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (id: string) => {
-    const [found, scans, latest, open] = await Promise.all([
+    const [found, scans, latest, open, given] = await Promise.all([
       getRecipe(id),
       getImages(id),
       getLatestTranslation(id),
       getOpenQuestions(id),
+      getAnswers(id),
     ]);
     setRecipe(found);
     setImages(scans);
     setTranslation(latest);
     setQuestions(open);
+    setAnswers(given);
   }, []);
 
   useEffect(() => {
@@ -135,25 +141,13 @@ export default function RecipePage() {
         </section>
       )}
 
-      {questions.length > 0 && (
-        <section className="panel">
-          <h3>What the card does not say</h3>
-          <p className="note">
-            Answering these will be the next step. For now they show where the
-            translation had to guess.
-          </p>
-          <ul className="questions">
-            {questions.map((question) => (
-              <li key={question.id}>
-                <p className="question">{question.question}</p>
-                {question.rationale && (
-                  <p className="note">{question.rationale}</p>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <Interview
+        recipeId={recipe.id}
+        userId={userId}
+        questions={questions}
+        answers={answers}
+        onTranslated={() => load(recipe.id)}
+      />
     </article>
   );
 }

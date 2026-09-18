@@ -81,6 +81,15 @@ export interface InterviewQuestion {
   created_at: string;
 }
 
+export interface InterviewAnswer {
+  id: string;
+  question_id: string;
+  recipe_id: string;
+  answer: string;
+  answered_by: string | null;
+  created_at: string;
+}
+
 export interface Family {
   id: string;
   name: string;
