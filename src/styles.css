@@ -110,6 +110,8 @@ button.primary {
 
 button.primary:disabled { opacity: 0.55; cursor: not-allowed; }
 
+.wordmark-link { text-decoration: none; color: inherit; }
+
 button.link, a.link {
   background: none;
   border: 0;
@@ -164,7 +166,7 @@ button.link, a.link {
 }
 
 .badge-translated { background: #e7f0e8; color: #2f6b46; }
-.badge-processing { background: #f6eeda; color: var(--warn); }
+.badge-translating { background: #f6eeda; color: var(--warn); }
 .badge-failed { background: #fdf1ef; color: var(--bad); }
 
 /* --- recipe page --- */
@@ -181,6 +183,7 @@ button.link, a.link {
 .recipe-actions { display: flex; align-items: center; gap: 1rem; }
 .recipe-actions .primary { margin-top: 0; }
 .recipe-actions .link { margin-top: 0; }
+.recipe-actions .danger { color: var(--bad); }
 .attribution { color: var(--accent); margin: 0 0 0.25rem; }
 
 .side-by-side {

@@ -1,4 +1,4 @@
-import type { Translation } from "../lib/types";
+import type { Recipe } from "../lib/types";
 
 function formatMinutes(minutes?: number): string | null {
   if (!minutes || minutes <= 0) return null;
@@ -12,32 +12,28 @@ function toFahrenheit(celsius: number): number {
   return Math.round((celsius * 9) / 5 + 32);
 }
 
-export default function TranslatedRecipeView({
-  translation,
-}: {
-  translation: Translation;
-}) {
-  const recipe = translation.translated ?? {};
-  const totalTime = formatMinutes(recipe.total_time_minutes);
+export default function TranslatedRecipeView({ recipe }: { recipe: Recipe }) {
+  const translated = recipe.translated ?? {};
+  const totalTime = formatMinutes(translated.total_time_minutes);
 
   return (
     <article className="translated">
       <header>
-        <h3>{recipe.title ?? "Translated recipe"}</h3>
+        <h3>{translated.title ?? "Translated recipe"}</h3>
         <p className="meta">
-          {recipe.servings && <span>{recipe.servings}</span>}
+          {translated.servings && <span>{translated.servings}</span>}
           {totalTime && <span>{totalTime}</span>}
-          {recipe.confidence && (
-            <span>Reading confidence: {recipe.confidence}</span>
+          {translated.confidence && (
+            <span>Reading confidence: {translated.confidence}</span>
           )}
         </p>
       </header>
 
-      {recipe.ingredients && recipe.ingredients.length > 0 && (
+      {translated.ingredients && translated.ingredients.length > 0 && (
         <section>
           <h4>Ingredients</h4>
           <ul className="ingredients">
-            {recipe.ingredients.map((ingredient, index) => (
+            {translated.ingredients.map((ingredient, index) => (
               <li key={index}>
                 <span className="quantity">{ingredient.quantity_metric}</span>
                 <span className="item">{ingredient.item}</span>
@@ -53,11 +49,11 @@ export default function TranslatedRecipeView({
         </section>
       )}
 
-      {recipe.steps && recipe.steps.length > 0 && (
+      {translated.steps && translated.steps.length > 0 && (
         <section>
           <h4>Method</h4>
           <ol className="steps">
-            {recipe.steps.map((step, index) => {
+            {translated.steps.map((step, index) => {
               const time = formatMinutes(step.time_minutes);
               return (
                 <li key={index}>
@@ -79,11 +75,11 @@ export default function TranslatedRecipeView({
         </section>
       )}
 
-      {recipe.substitutions && recipe.substitutions.length > 0 && (
+      {translated.substitutions && translated.substitutions.length > 0 && (
         <section>
           <h4>Substitutions</h4>
           <ul className="substitutions">
-            {recipe.substitutions.map((substitution, index) => (
+            {translated.substitutions.map((substitution, index) => (
               <li key={index}>
                 <strong>{substitution.original}</strong> → {substitution.modern}
                 <span className="note">{substitution.reason}</span>
@@ -93,21 +89,18 @@ export default function TranslatedRecipeView({
         </section>
       )}
 
-      {recipe.assumptions && recipe.assumptions.length > 0 && (
+      {translated.assumptions && translated.assumptions.length > 0 && (
         <section>
           <h4>Assumptions</h4>
           <ul className="assumptions">
-            {recipe.assumptions.map((assumption, index) => (
+            {translated.assumptions.map((assumption, index) => (
               <li key={index}>{assumption}</li>
             ))}
           </ul>
         </section>
       )}
 
-      <footer className="meta">
-        Version {translation.version}
-        {translation.model && ` · ${translation.model}`}
-      </footer>
+      {recipe.model && <footer className="meta">{recipe.model}</footer>}
     </article>
   );
 }

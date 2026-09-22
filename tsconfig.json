@@ -17,5 +17,5 @@
     "types": ["vite/client"]
   },
   "include": ["src"],
-  "exclude": ["supabase/functions"]
+  "exclude": ["netlify"]
 }

@@ -1,21 +1,15 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { createRecipeWithScan, translateRecipe } from "../lib/api";
+import { createRecipe, translateRecipe } from "../lib/api";
 
-interface Props {
-  familyId: string;
-  userId: string;
-  onUploaded: () => void;
-}
-
-export default function UploadCard({ familyId, userId, onUploaded }: Props) {
+export default function UploadCard({ onAdded }: { onAdded: () => void }) {
   const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [attributedTo, setAttributedTo] = useState("");
   const [sourceNote, setSourceNote] = useState("");
-  const [stage, setStage] = useState<"idle" | "uploading" | "reading">("idle");
+  const [stage, setStage] = useState<"idle" | "preparing" | "reading">("idle");
   const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(event: FormEvent) {
@@ -23,28 +17,21 @@ export default function UploadCard({ familyId, userId, onUploaded }: Props) {
     if (!file) return;
 
     setError(null);
-    setStage("uploading");
+    setStage("preparing");
 
     let recipeId: string | null = null;
     try {
-      const recipe = await createRecipeWithScan({
-        familyId,
-        userId,
-        file,
-        title,
-        attributedTo,
-        sourceNote,
-      });
+      const recipe = await createRecipe({ file, title, attributedTo, sourceNote });
       recipeId = recipe.id;
-      onUploaded();
+      onAdded();
 
       setStage("reading");
-      await translateRecipe(recipe.id);
+      await translateRecipe(recipe);
       navigate(`/recipe/${recipe.id}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
-      // The scan is saved either way, so let the reader open the recipe and
-      // try the translation again from there.
+      // The card is saved either way, so let the reader open it and retry
+      // from there rather than lose the photograph.
       if (recipeId) navigate(`/recipe/${recipeId}`);
     } finally {
       setStage("idle");
@@ -61,7 +48,7 @@ export default function UploadCard({ familyId, userId, onUploaded }: Props) {
         <input
           id="scan"
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+          accept="image/jpeg,image/png,image/webp"
           required
           onChange={(event) => setFile(event.target.files?.[0] ?? null)}
         />
@@ -99,8 +86,8 @@ export default function UploadCard({ familyId, userId, onUploaded }: Props) {
         />
 
         <button type="submit" className="primary" disabled={busy || !file}>
-          {stage === "uploading"
-            ? "Uploading…"
+          {stage === "preparing"
+            ? "Preparing the photograph…"
             : stage === "reading"
             ? "Reading the handwriting…"
             : "Translate this card"}
