@@ -1,5 +1,4 @@
-// Shapes shared by the database, the Edge Function, and the UI.
-// The `translated` column of public.translations holds a TranslatedRecipe.
+// Shapes shared by the Netlify function and the UI.
 
 export interface Ingredient {
   item: string;
@@ -34,56 +33,30 @@ export interface TranslatedRecipe {
   confidence?: string;
 }
 
-export type RecipeStatus = "uploaded" | "processing" | "translated" | "failed";
+export interface OpenQuestion {
+  question: string;
+  rationale: string;
+}
 
+export type RecipeStatus = "translating" | "translated" | "failed";
+
+/**
+ * One card. This is the whole record: the scan, what the handwriting says, and
+ * the modern recipe. It lives in this browser's IndexedDB and nowhere else.
+ */
 export interface Recipe {
   id: string;
-  family_id: string;
-  created_by: string | null;
   title: string | null;
-  attributed_to: string | null;
-  source_note: string | null;
+  attributedTo: string | null;
+  sourceNote: string | null;
   status: RecipeStatus;
-  error_message: string | null;
-  is_public: boolean;
-  share_slug: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface RecipeImage {
-  id: string;
-  recipe_id: string;
-  storage_path: string;
-  position: number;
-  mime_type: string | null;
-  byte_size: number | null;
-  created_at: string;
-}
-
-export interface Translation {
-  id: string;
-  recipe_id: string;
-  version: number;
+  errorMessage: string | null;
+  createdAt: string;
+  /** The downscaled photograph, held as a blob. */
+  scan: Blob;
+  scanMimeType: string;
   transcription: string | null;
-  translated: TranslatedRecipe;
-  notes: string | null;
+  translated: TranslatedRecipe | null;
+  openQuestions: OpenQuestion[];
   model: string | null;
-  created_at: string;
-}
-
-export interface InterviewQuestion {
-  id: string;
-  recipe_id: string;
-  question: string;
-  rationale: string | null;
-  position: number;
-  created_at: string;
-}
-
-export interface Family {
-  id: string;
-  name: string;
-  created_by: string | null;
-  created_at: string;
 }

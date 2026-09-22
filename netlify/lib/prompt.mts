@@ -25,15 +25,11 @@ How to translate the recipe:
   value for that kind of dish, and record the choice as an assumption.
 
 Family context:
-- You are given answers from the family about who cooked this and how. Use
-  them. They are more reliable than your general knowledge.
-- Where an answer is missing and it changes the result, write an open question.
+- You are given whatever the family could tell us about who cooked this and
+  how. Use it. It is more reliable than your general knowledge.
+- Where something is missing and it changes the result, write an open question.
   Ask about the cook, the occasion, the equipment, and the expected look,
   smell, or texture. Keep each question short and answerable.
-- You may be shown the questions already on file. Any of those that is still
-  worth asking, repeat word for word, exactly as written. Do not reword it and
-  do not ask the same thing in other words. Add a question only for something
-  the list does not already cover.
 
 Write plain, direct English. Do not add commentary outside the JSON fields.
 `.trim();
@@ -118,14 +114,11 @@ export interface RecipeContext {
   title?: string | null;
   attributedTo?: string | null;
   sourceNote?: string | null;
-  answers: { question: string; answer: string }[];
-  /** Questions already stored and still unanswered. */
-  openQuestions: string[];
 }
 
 export function buildPrompt(context: RecipeContext): string {
   const lines: string[] = [
-    "Read the attached photograph(s) of one handwritten recipe card and return the JSON object.",
+    "Read the attached photograph of one handwritten recipe card and return the JSON object.",
   ];
 
   const given: string[] = [];
@@ -135,34 +128,15 @@ export function buildPrompt(context: RecipeContext): string {
 
   if (given.length > 0) {
     lines.push("", "What the family already told us:", ...given.map((g) => `- ${g}`));
-  }
-
-  if (context.answers.length > 0) {
-    lines.push("", "Answers from the family interview:");
-    for (const entry of context.answers) {
-      lines.push(`- Q: ${entry.question}`, `  A: ${entry.answer}`);
-    }
-    lines.push(
-      "",
-      "Use these answers. Do not ask them again. Ask only what is still open.",
-    );
   } else {
-    lines.push(
-      "",
-      "The family has not answered any questions yet. List the questions that",
-      "would most improve this recipe in open_questions.",
-    );
+    lines.push("", "The family told us nothing beyond the card itself.");
   }
 
-  if (context.openQuestions.length > 0) {
-    lines.push("", "Questions already on file, still unanswered:");
-    for (const question of context.openQuestions) lines.push(`- ${question}`);
-    lines.push(
-      "",
-      "Return each of these that is still worth asking word for word.",
-      "Add a question only for something they do not already cover.",
-    );
-  }
+  lines.push(
+    "",
+    "List in open_questions whatever the family could tell you that would most",
+    "improve this recipe.",
+  );
 
   return lines.join("\n");
 }

@@ -5,7 +5,12 @@
 [build.environment]
   NODE_VERSION = "22"
 
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
 # Vite builds a single-page app, so every path must fall back to index.html.
+# The function routes are matched before this, so they are unaffected.
 [[redirects]]
   from = "/*"
   to = "/index.html"

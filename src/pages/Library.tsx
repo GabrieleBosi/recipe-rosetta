@@ -2,56 +2,33 @@ import { useCallback, useEffect, useState } from "react";
 
 import RecipeList from "../components/RecipeList";
 import UploadCard from "../components/UploadCard";
-import { ensureFamily, listRecipes } from "../lib/api";
-import type { Family, Recipe } from "../lib/types";
+import { listRecipes } from "../lib/store";
+import type { Recipe } from "../lib/types";
 
-interface Props {
-  userId: string;
-  displayName: string | null;
-}
-
-export default function Library({ userId, displayName }: Props) {
-  const [family, setFamily] = useState<Family | null>(null);
+export default function Library() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async (familyId: string) => {
-    setRecipes(await listRecipes(familyId));
+  const refresh = useCallback(async () => {
+    try {
+      setRecipes(await listRecipes());
+      setError(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    }
   }, []);
 
   useEffect(() => {
-    let active = true;
-    ensureFamily(userId, displayName)
-      .then(async (found) => {
-        if (!active) return;
-        setFamily(found);
-        await refresh(found.id);
-      })
-      .catch((caught) => {
-        if (active) {
-          setError(caught instanceof Error ? caught.message : String(caught));
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [userId, displayName, refresh]);
+    refresh().finally(() => setLoading(false));
+  }, [refresh]);
 
   if (loading) return <p className="note">Loading your kitchen…</p>;
-  if (error) return <p className="error">{error}</p>;
-  if (!family) return <p className="error">No family found for this account.</p>;
 
   return (
     <>
-      <UploadCard
-        familyId={family.id}
-        userId={userId}
-        onUploaded={() => void refresh(family.id)}
-      />
+      {error && <p className="error">{error}</p>}
+      <UploadCard onAdded={() => void refresh()} />
       <RecipeList recipes={recipes} />
     </>
   );

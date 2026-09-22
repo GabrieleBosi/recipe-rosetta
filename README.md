@@ -8,187 +8,110 @@ are no longer sold — with the original scan beside it.
 
 ```
 browser (React + Vite, on Netlify)
-   │  upload scan            ┌─────────────────────────────┐
-   ├────────────────────────►│ Supabase Storage            │
-   │                         │ recipe-scans (private)      │
-   │  rows                   └─────────────────────────────┘
-   ├────────────────────────► Supabase Postgres (RLS by family)
    │
-   │  invoke translate-recipe
-   └────────────────────────► Supabase Edge Function ──► Gemini
-                                (holds GEMINI_API_KEY)
+   ├── shrinks the photograph, stores the card in IndexedDB
+   │
+   ├── POST /.netlify/functions/translate-background ──► Gemini
+   │        (background function, holds GEMINI_API_KEY)     │
+   │                                                        ▼
+   │                                              Netlify Blobs
+   │                                              (result, by job id)
+   │
+   └── polls GET /.netlify/functions/translation?job=… for the result
 ```
 
-The Gemini key is a Supabase secret. It is read inside the Edge Function only,
-so it never reaches the browser.
+There is no database and no server-side account. Netlify is the only backend,
+and its only job is to hold the Gemini key and make the call.
+
+### Why a background function
+
+A Gemini call on a photograph takes longer than a synchronous Netlify function
+is allowed to run. So the request starts a background function, which answers
+`202` at once, does the work, and writes the result to Netlify Blobs under a
+job id the browser generated. The browser polls for that id until it appears.
+
+The job id is a random UUID, so a result is only reachable by whoever started
+it. Nothing is tied to an account, because there are none.
+
+## Where your recipes live
+
+**In one browser, on one device.** Each card — the scan, the transcription and
+the translated recipe — is written to IndexedDB. That has consequences worth
+knowing before you rely on it:
+
+- Clearing site data deletes every card.
+- Nothing syncs. A card added on a laptop is not on a phone.
+- Nothing is shared. There is no link you can send to a relative.
+- Private browsing may refuse to store anything at all.
+
+Print or save a card as PDF if you want a copy that outlives the browser.
 
 ## Layout
 
 | Path | What it holds |
 | --- | --- |
-| `src/` | React app: sign in, upload, card list, side-by-side view |
-| `src/lib/api.ts` | Every database and storage call the UI makes |
-| `supabase/migrations/` | Schema and row level security |
-| `supabase/functions/translate-recipe/` | Reads the scan, calls Gemini, stores the result |
-| `supabase/functions/_shared/prompt.ts` | The instructions and output schema Gemini follows |
-| `netlify.toml` | Build command and single-page-app redirect |
-
-## Data model
-
-- `families` and `family_members` — a family owns recipes; membership decides
-  every read and write.
-- `profiles` — display name per auth user, created by trigger on sign-up.
-- `recipes` — one card, with the family context the reader supplies.
-- `recipe_images` — object keys in the `recipe-scans` bucket. The key starts
-  with the family id, which is what the Storage policies check.
-- `translations` — one row per run, versioned. `transcription` is what the card
-  says; `translated` is the modern recipe as JSON.
-- `interview_questions` and `interview_answers` — what the card does not say.
-
-Row level security is on for every table. A user reads a row only if they are a
-member of that row's family. The Edge Function proves membership with the
-caller's own token before it writes anything with the service role.
+| `src/lib/store.ts` | IndexedDB: every card lives here |
+| `src/lib/image.ts` | Shrinks a photograph before it is sent |
+| `src/lib/api.ts` | Starts a translation and polls for the result |
+| `netlify/functions/translate-background.mts` | Calls Gemini, writes to Blobs |
+| `netlify/functions/translation.mts` | Serves a result by job id |
+| `netlify/lib/prompt.mts` | The instructions and output schema Gemini follows |
+| `netlify.toml` | Build command, functions directory, single-page fallback |
 
 ## Set up
 
-### 1. Supabase
+### The Gemini key
 
-The hosted project already exists:
+One environment variable, set in the Netlify dashboard under **Site
+configuration → Environment variables**:
 
-- URL: `https://pwruhqpefkbbrkgmgehn.supabase.co`
-- Schema and the `recipe-scans` bucket are applied.
+| Name | Value |
+| --- | --- |
+| `GEMINI_API_KEY` | your key from Google AI Studio |
+| `GEMINI_MODEL` | optional; defaults to `gemini-3.6-flash` |
 
-To work on it from a clone:
+Do **not** prefix it with `VITE_`. Anything so prefixed is compiled into the
+browser bundle and is public. This key is read inside the function only.
 
-```bash
-npm install -g supabase
-supabase login
-supabase link --project-ref pwruhqpefkbbrkgmgehn
-```
+Model ids get retired. If translation starts failing with a 404 naming the
+model, set `GEMINI_MODEL` to the replacement Google names in the error. No code
+change or redeploy is needed.
 
-### 2. The Gemini key
-
-This is the one step that cannot be scripted from the repository, because the
-key must not be committed. Run either of these:
-
-```bash
-supabase secrets set GEMINI_API_KEY=your-key-here
-```
-
-or set it in the dashboard, under **Project settings → Edge Functions →
-Secrets**. Get a key from Google AI Studio.
-
-Optional: set `GEMINI_MODEL` to use another multimodal model. The default is
-`gemini-3.6-flash`.
-
-Check it took:
-
-```bash
-supabase secrets list
-```
-
-### 3. The frontend
+### Running it locally
 
 ```bash
 npm install
-cp .env.example .env.local
-npm run dev
+cp .env.example .env    # then put your real key in it
+npm install -g netlify-cli
+netlify dev
 ```
 
-`.env.local` holds only the project URL and the publishable key. Both are safe
-in the browser: they can do only what row level security allows.
+Use `netlify dev`, not `npm run dev`. Plain Vite serves the frontend but not
+the functions, so translation will fail with a 404.
 
-### 4. Netlify
+## Deploying
 
-Connect the repository, then set these build settings (they are already in
-`netlify.toml`):
+Netlify builds from `main` on every push. Nothing else to do.
 
-- Build command: `npm run build`
-- Publish directory: `dist`
-
-Add the two `VITE_` variables from `.env.example` under **Site configuration →
-Environment variables**. Do not add `GEMINI_API_KEY` — Netlify never needs it.
-
-The live site is https://recipe-rosetta.netlify.app. It builds from `main`,
-and both `VITE_` variables are already set on it.
-
-### 5. Auth URLs
-
-Do this before the first sign-up, or confirmation links go nowhere.
-
-A new Supabase project sets its Site URL to `http://localhost:3000`. That is
-the default target for confirmation and password-reset links, so every link
-sends the user to a port nothing listens on.
-
-Under **Authentication → URL Configuration**:
-
-- **Site URL**: `https://recipe-rosetta.netlify.app`
-- **Redirect URLs**: add `https://recipe-rosetta.netlify.app/**` and
-  `http://localhost:5173/**` for local work. The dev server uses port 5173,
-  not 3000.
-
-Sign-up also passes `emailRedirectTo: window.location.origin`, so a link
-returns to whichever origin the person signed up from. That origin must still
-appear in the Redirect URLs list, or Supabase falls back to the Site URL.
-
-Two things about confirmation links:
-
-- They work once. Mail providers scan links before the reader clicks, which
-  can spend the link. The reader then sees `otp_expired` although the account
-  is already confirmed. They can simply sign in.
-- To skip email confirmation while testing, turn off **Authentication →
-  Sign In / Providers → Email → Confirm email**.
-
-## Deploying changes
-
-```bash
-supabase db push                              # migrations
-supabase functions deploy translate-recipe    # the Gemini function
-git push                                      # Netlify builds the frontend
-```
-
-## What is built, and what is next
+## What is built, and what is not
 
 Built:
 
-- Email and password accounts, one family per new account.
-- Upload a scan to the private bucket.
-- One call to Gemini that transcribes the handwriting and writes the modern
-  recipe, with substitutions and the assumptions it had to make.
-- Side-by-side view: the scan on the left, the translation on the right.
-- The questions Gemini could not answer are stored, ready for the interview.
+- Photograph a card, have the handwriting read, and get a modern recipe with
+  gram measures, timings, substitutions and the assumptions it had to make.
+- Side by side: the scan on the left, the translation on the right, with the
+  verbatim transcription and the questions the card left open below.
+- Translate again, after adding context in "Whose recipe" or "Where it came
+  from" — those are passed to Gemini.
+- Delete a card.
 
-Next:
+Not built, and not possible without a backend:
 
-1. **Interview** — a form that answers `interview_questions` and runs the
-   translation again. The Edge Function already reads the answers back and
-   feeds them to Gemini, so this is a UI change.
-2. **Sharing** — `recipes.is_public` and `recipes.share_slug` exist. Sharing
-   needs a read policy for anonymous users on the public rows, a matching
-   Storage policy for their scans, and a `/share/:slug` route.
-3. **Invites** — adding another person to a family. `family_members` and its
-   policies are in place; the invitation flow is not.
+- **Accounts and sharing.** Both need a server that remembers people.
+- **Sync between devices.** Same reason.
+- **The interview.** Gemini still raises its open questions and they are shown,
+  but answering them and feeding the answers back would want somewhere to keep
+  them.
 
-## Security notes
-
-- Row level security is on for all eight tables and for the `recipe-scans`
-  bucket. A user reads and writes only rows that belong to a family they are a
-  member of.
-- The Edge Function proves membership with the caller's own token before it
-  uses the service role for any write.
-- `GEMINI_API_KEY` is a Supabase secret. It is not in the repository, not in
-  `.env.example`, and not in the Netlify build.
-- The Supabase security linter reports two remaining warnings, for
-  `is_family_member` and `is_family_owner`. Leave them. A row level security
-  policy runs with the privileges of the querying role, so `authenticated`
-  must keep `EXECUTE` on both, or every policy that calls them fails.
-
-## Generated types
-
-The client is untyped today. To generate types from the live schema:
-
-```bash
-supabase gen types typescript --project-id pwruhqpefkbbrkgmgehn > src/lib/database.types.ts
-```
-
-Then pass the `Database` type to `createClient<Database>` in `src/lib/supabase.ts`.
+If any of those matter later, they need a database again — Netlify Blobs plus
+an identity provider, or a hosted Postgres.

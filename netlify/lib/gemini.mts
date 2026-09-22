@@ -1,9 +1,12 @@
-// Gemini request helpers. The key never leaves the Edge Function: it is read
-// from the GEMINI_API_KEY secret at call time.
+// Gemini request helpers.
+//
+// The key is read from the GEMINI_API_KEY environment variable inside the
+// function, so it never reaches the browser.
 
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
 
-// Override with the GEMINI_MODEL secret to move to another multimodal model.
+// Override with the GEMINI_MODEL environment variable to move to another
+// multimodal model. Google retires these, so expect to change it eventually.
 export const DEFAULT_MODEL = "gemini-3.6-flash";
 
 export interface InlineImage {
@@ -19,19 +22,17 @@ export interface GeminiCall {
   temperature?: number;
 }
 
-export interface GeminiResult<T> {
-  data: T;
-  model: string;
-}
-
-export async function callGemini<T>(call: GeminiCall): Promise<GeminiResult<T>> {
-  const apiKey = Deno.env.get("GEMINI_API_KEY");
+export async function callGemini<T>(
+  call: GeminiCall,
+): Promise<{ data: T; model: string }> {
+  const apiKey = Netlify.env.get("GEMINI_API_KEY");
   if (!apiKey) {
     throw new Error(
-      "GEMINI_API_KEY is not set. Add it with: supabase secrets set GEMINI_API_KEY=...",
+      "GEMINI_API_KEY is not set. Add it under Site configuration, " +
+        "Environment variables, in the Netlify dashboard.",
     );
   }
-  const model = Deno.env.get("GEMINI_MODEL") ?? DEFAULT_MODEL;
+  const model = Netlify.env.get("GEMINI_MODEL") ?? DEFAULT_MODEL;
 
   const parts: Record<string, unknown>[] = call.images.map((image) => ({
     inline_data: { mime_type: image.mimeType, data: image.base64 },
